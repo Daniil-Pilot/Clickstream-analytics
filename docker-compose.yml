@@ -1,0 +1,57 @@
+version: '3.7'
+services:
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    environment:
+      - CLUSTER_NAME=clickstream-cluster
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+    ports:
+      - "9870:9870"   # NameNode UI
+      - "9000:9000"
+    volumes:
+      - namenode:/hadoop/dfs/name
+      - ./host_incoming:/host_incoming  # общая папка для генератора файлов
+
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode
+    depends_on:
+      - namenode
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+      - HDFS_CONF_dfs_datanode_data_dir=/hadoop/dfs/data
+    volumes:
+      - datanode:/hadoop/dfs/data
+
+  spark-master:
+    image: bitnami/spark:3.3
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_LOCAL_IP=spark-master
+    ports:
+      - "7077:7077"
+      - "8080:8080"
+    volumes:
+      - ./jobs:/jobs
+      - ./data_sample:/data_sample
+      - ./host_incoming:/host_incoming
+
+  spark-worker:
+    image: bitnami/spark:3.3
+    container_name: spark-worker
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=1
+    volumes:
+      - ./jobs:/jobs
+
+volumes:
+  namenode:
+  datanode:
